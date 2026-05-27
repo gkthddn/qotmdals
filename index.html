@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>간단한 계산기</title>
+  <title>Firebase 데이터 관리 페이지</title>
   <style>
     * {
       box-sizing: border-box;
@@ -12,167 +12,390 @@
     body {
       margin: 0;
       min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
       background: linear-gradient(135deg, #e3f2fd, #fce4ec);
       font-family: Arial, sans-serif;
-    }
-
-    .calculator {
-      width: 320px;
-      padding: 24px;
-      border-radius: 24px;
-      background: #ffffff;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
-    }
-
-    h1 {
-      margin: 0 0 16px;
-      text-align: center;
-      font-size: 24px;
       color: #333;
     }
 
-    #display {
-      width: 100%;
-      height: 64px;
-      margin-bottom: 16px;
-      padding: 12px;
-      border: none;
-      border-radius: 14px;
-      background: #f4f6f8;
+    .container {
+      width: min(900px, 92%);
+      margin: 40px auto;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.16);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      text-align: center;
       font-size: 28px;
-      text-align: right;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #777;
+      margin-bottom: 28px;
+      font-size: 14px;
+    }
+
+    .form-box {
+      display: grid;
+      grid-template-columns: 1fr 2fr auto;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    input {
+      height: 46px;
+      padding: 0 14px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 15px;
       outline: none;
     }
 
-    .buttons {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
+    input:focus {
+      border-color: #42a5f5;
+      box-shadow: 0 0 0 3px rgba(66, 165, 245, 0.15);
     }
 
     button {
-      height: 58px;
       border: none;
-      border-radius: 14px;
-      font-size: 20px;
+      border-radius: 12px;
+      padding: 0 16px;
+      height: 46px;
+      font-size: 15px;
       cursor: pointer;
-      background: #edf1f5;
       transition: 0.15s;
+      font-weight: bold;
     }
 
     button:hover {
       transform: translateY(-2px);
-      background: #dde5ec;
+      opacity: 0.9;
     }
 
-    .operator {
-      background: #ffe0b2;
-      color: #e65100;
-      font-weight: bold;
-    }
-
-    .equal {
+    .add-btn {
       background: #42a5f5;
       color: white;
-      font-weight: bold;
-      grid-column: span 2;
     }
 
-    .clear {
+    .refresh-btn {
+      background: #66bb6a;
+      color: white;
+      margin-bottom: 16px;
+    }
+
+    .edit-btn {
+      background: #ffca28;
+      color: #333;
+    }
+
+    .delete-btn {
       background: #ef5350;
       color: white;
+    }
+
+    .save-btn {
+      background: #7e57c2;
+      color: white;
+    }
+
+    .cancel-btn {
+      background: #b0bec5;
+      color: white;
+    }
+
+    .status {
+      min-height: 24px;
+      margin-bottom: 14px;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 16px;
+      border-radius: 16px;
+      background: #f7f9fb;
+      border: 1px solid #edf1f5;
+    }
+
+    .item-title {
+      margin: 0 0 6px;
+      font-size: 18px;
       font-weight: bold;
     }
 
-    .zero {
-      grid-column: span 2;
+    .item-content {
+      margin: 0;
+      color: #555;
+      line-height: 1.5;
+      word-break: break-all;
     }
 
-    .guide {
-      margin-top: 14px;
+    .item-date {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .item-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .edit-box {
+      display: grid;
+      grid-template-columns: 1fr 2fr auto auto;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .empty {
       text-align: center;
-      font-size: 13px;
-      color: #777;
+      padding: 30px;
+      color: #888;
+      background: #f7f9fb;
+      border-radius: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .form-box,
+      .item,
+      .edit-box {
+        grid-template-columns: 1fr;
+      }
+
+      .item-actions {
+        justify-content: flex-end;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="calculator">
-    <h1>계산기</h1>
+  <div class="container">
+    <h1>Firebase 데이터 관리</h1>
+    <div class="subtitle">Realtime Database와 연결된 간단한 CRUD 웹페이지</div>
 
-    <input id="display" type="text" placeholder="0" readonly />
-
-    <div class="buttons">
-      <button class="clear" onclick="clearDisplay()">C</button>
-      <button onclick="deleteLast()">⌫</button>
-      <button class="operator" onclick="addToDisplay('%')">%</button>
-      <button class="operator" onclick="addToDisplay('/')">÷</button>
-
-      <button onclick="addToDisplay('7')">7</button>
-      <button onclick="addToDisplay('8')">8</button>
-      <button onclick="addToDisplay('9')">9</button>
-      <button class="operator" onclick="addToDisplay('*')">×</button>
-
-      <button onclick="addToDisplay('4')">4</button>
-      <button onclick="addToDisplay('5')">5</button>
-      <button onclick="addToDisplay('6')">6</button>
-      <button class="operator" onclick="addToDisplay('-')">−</button>
-
-      <button onclick="addToDisplay('1')">1</button>
-      <button onclick="addToDisplay('2')">2</button>
-      <button onclick="addToDisplay('3')">3</button>
-      <button class="operator" onclick="addToDisplay('+')">+</button>
-
-      <button class="zero" onclick="addToDisplay('0')">0</button>
-      <button onclick="addToDisplay('.')">.</button>
-      <button class="equal" onclick="calculate()">=</button>
+    <div class="form-box">
+      <input id="titleInput" type="text" placeholder="제목 입력" />
+      <input id="contentInput" type="text" placeholder="내용 입력" />
+      <button class="add-btn" onclick="addData()">추가</button>
     </div>
 
-    <div class="guide">키보드 숫자와 연산자도 사용할 수 있습니다.</div>
+    <button class="refresh-btn" onclick="loadData()">데이터 새로고침</button>
+    <div id="status" class="status"></div>
+    <div id="dataList" class="list"></div>
   </div>
 
   <script>
-    const display = document.getElementById('display');
+    // Firebase Realtime Database URL
+    const DATABASE_URL = 'https://test-ba2bb-default-rtdb.firebaseio.com/';
 
-    function addToDisplay(value) {
-      display.value += value;
+    // 데이터를 저장할 위치입니다.
+    // Firebase 콘솔에서는 items 아래에 데이터가 저장됩니다.
+    const DATA_PATH = 'items';
+
+    const titleInput = document.getElementById('titleInput');
+    const contentInput = document.getElementById('contentInput');
+    const dataList = document.getElementById('dataList');
+    const statusBox = document.getElementById('status');
+
+    function setStatus(message) {
+      statusBox.textContent = message;
     }
 
-    function clearDisplay() {
-      display.value = '';
+    function getEndpoint(path = '') {
+      const cleanPath = path ? `/${path}` : '';
+      return `${DATABASE_URL}/${DATA_PATH}${cleanPath}.json`;
     }
 
-    function deleteLast() {
-      display.value = display.value.slice(0, -1);
-    }
-
-    function calculate() {
+    async function loadData() {
       try {
-        if (display.value.trim() === '') return;
+        setStatus('데이터를 불러오는 중입니다...');
 
-        const result = Function('return ' + display.value)();
-        display.value = result;
+        const response = await fetch(getEndpoint());
+        const data = await response.json();
+
+        renderData(data);
+        setStatus('데이터를 불러왔습니다.');
       } catch (error) {
-        display.value = '오류';
-        setTimeout(clearDisplay, 1000);
+        console.error(error);
+        setStatus('데이터 불러오기에 실패했습니다. Firebase 보안 규칙을 확인하세요.');
       }
     }
-    document.addEventListener('keydown', function(event) {
-      const key = event.key;
 
-      if (!isNaN(key) || ['+', '-', '*', '/', '.', '%'].includes(key)) {
-        addToDisplay(key);
-      } else if (key === 'Enter') {
-        calculate();
-      } else if (key === 'Backspace') {
-        deleteLast();
-      } else if (key === 'Escape') {
-        clearDisplay();
+    async function addData() {
+      const title = titleInput.value.trim();
+      const content = contentInput.value.trim();
+
+      if (!title || !content) {
+        alert('제목과 내용을 모두 입력해주세요.');
+        return;
+      }
+
+      const newItem = {
+        title: title,
+        content: content,
+        createdAt: new Date().toLocaleString('ko-KR')
+      };
+
+      try {
+        setStatus('데이터를 추가하는 중입니다...');
+
+        await fetch(getEndpoint(), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newItem)
+        });
+
+        titleInput.value = '';
+        contentInput.value = '';
+        await loadData();
+      } catch (error) {
+        console.error(error);
+        setStatus('데이터 추가에 실패했습니다.');
+      }
+    }
+
+    async function deleteData(id) {
+      const isConfirmed = confirm('정말 삭제하시겠습니까?');
+      if (!isConfirmed) return;
+
+      try {
+        setStatus('데이터를 삭제하는 중입니다...');
+
+        await fetch(getEndpoint(id), {
+          method: 'DELETE'
+        });
+
+        await loadData();
+      } catch (error) {
+        console.error(error);
+        setStatus('데이터 삭제에 실패했습니다.');
+      }
+    }
+
+    async function updateData(id) {
+      const editTitle = document.getElementById(`edit-title-${id}`).value.trim();
+      const editContent = document.getElementById(`edit-content-${id}`).value.trim();
+
+      if (!editTitle || !editContent) {
+        alert('수정할 제목과 내용을 모두 입력해주세요.');
+        return;
+      }
+
+      const updatedItem = {
+        title: editTitle,
+        content: editContent,
+        updatedAt: new Date().toLocaleString('ko-KR')
+      };
+
+      try {
+        setStatus('데이터를 수정하는 중입니다...');
+
+        await fetch(getEndpoint(id), {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updatedItem)
+        });
+
+        await loadData();
+      } catch (error) {
+        console.error(error);
+        setStatus('데이터 수정에 실패했습니다.');
+      }
+    }
+
+    function renderData(data) {
+      dataList.innerHTML = '';
+
+      if (!data) {
+        dataList.innerHTML = '<div class="empty">아직 저장된 데이터가 없습니다.</div>';
+        return;
+      }
+
+      const entries = Object.entries(data).reverse();
+
+      entries.forEach(([id, item]) => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.id = `item-${id}`;
+
+        div.innerHTML = `
+          <div>
+            <p class="item-title">${escapeHTML(item.title || '')}</p>
+            <p class="item-content">${escapeHTML(item.content || '')}</p>
+            <div class="item-date">
+              생성: ${item.createdAt || '-'}
+              ${item.updatedAt ? ` / 수정: ${item.updatedAt}` : ''}
+            </div>
+          </div>
+          <div class="item-actions">
+            <button class="edit-btn" onclick="showEditForm('${id}', '${escapeForAttribute(item.title || '')}', '${escapeForAttribute(item.content || '')}')">수정</button>
+            <button class="delete-btn" onclick="deleteData('${id}')">삭제</button>
+          </div>
+        `;
+
+        dataList.appendChild(div);
+      });
+    }
+
+    function showEditForm(id, title, content) {
+      const itemBox = document.getElementById(`item-${id}`);
+
+      itemBox.innerHTML = `
+        <div class="edit-box">
+          <input id="edit-title-${id}" type="text" value="${title}" />
+          <input id="edit-content-${id}" type="text" value="${content}" />
+          <button class="save-btn" onclick="updateData('${id}')">저장</button>
+          <button class="cancel-btn" onclick="loadData()">취소</button>
+        </div>
+      `;
+    }
+
+    function escapeHTML(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function escapeForAttribute(text) {
+      return escapeHTML(text).replaceAll('`', '&#096;');
+    }
+
+    // Enter 키로 데이터 추가
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter' && document.activeElement.tagName === 'INPUT') {
+        const activeId = document.activeElement.id;
+        if (activeId === 'titleInput' || activeId === 'contentInput') {
+          addData();
+        }
       }
     });
+
+    // 페이지가 열리면 자동으로 데이터 조회
+    loadData();
   </script>
 </body>
 </html>
+
+
