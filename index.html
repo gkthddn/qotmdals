@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Firebase 데이터 관리 페이지</title>
+  <title>Firebase 로그인 데이터 관리</title>
   <style>
     * {
       box-sizing: border-box;
@@ -32,6 +32,11 @@
       font-size: 28px;
     }
 
+    h2 {
+      margin-top: 0;
+      font-size: 22px;
+    }
+
     .subtitle {
       text-align: center;
       color: #777;
@@ -39,11 +44,12 @@
       font-size: 14px;
     }
 
-    .form-box {
-      display: grid;
-      grid-template-columns: 1fr 2fr auto;
-      gap: 10px;
-      margin-bottom: 22px;
+    .auth-box {
+      max-width: 420px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     input {
@@ -76,6 +82,21 @@
       opacity: 0.9;
     }
 
+    .login-btn {
+      background: #42a5f5;
+      color: white;
+    }
+
+    .signup-btn {
+      background: #7e57c2;
+      color: white;
+    }
+
+    .logout-btn {
+      background: #455a64;
+      color: white;
+    }
+
     .add-btn {
       background: #42a5f5;
       color: white;
@@ -105,6 +126,30 @@
     .cancel-btn {
       background: #b0bec5;
       color: white;
+    }
+
+    .form-box {
+      display: grid;
+      grid-template-columns: 1fr 2fr auto;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      padding: 14px;
+      border-radius: 16px;
+      background: #f7f9fb;
+    }
+
+    .user-info {
+      font-size: 14px;
+      color: #555;
+      word-break: break-all;
     }
 
     .status {
@@ -170,11 +215,29 @@
       border-radius: 16px;
     }
 
+    .hidden {
+      display: none;
+    }
+
+    .notice {
+      max-width: 620px;
+      margin: 20px auto 0;
+      padding: 14px;
+      border-radius: 14px;
+      background: #fff8e1;
+      color: #6d4c41;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
     @media (max-width: 700px) {
       .form-box,
       .item,
-      .edit-box {
+      .edit-box,
+      .top-bar {
         grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .item-actions {
@@ -185,58 +248,216 @@
 </head>
 <body>
   <div class="container">
-    <h1>Firebase 데이터 관리</h1>
-    <div class="subtitle">Realtime Database와 연결된 간단한 CRUD 웹페이지</div>
+    <h1>Firebase 로그인 데이터 관리</h1>
+    <div class="subtitle">Firebase Authentication + Realtime Database 연동 예제</div>
 
-    <div class="form-box">
-      <input id="titleInput" type="text" placeholder="제목 입력" />
-      <input id="contentInput" type="text" placeholder="내용 입력" />
-      <button class="add-btn" onclick="addData()">추가</button>
-    </div>
+    <section id="authSection">
+      <div class="auth-box">
+        <h2>로그인 / 회원가입</h2>
+        <input id="emailInput" type="email" placeholder="이메일" />
+        <input id="passwordInput" type="password" placeholder="비밀번호 6자리 이상" />
+        <button class="login-btn" id="loginBtn">로그인</button>
+        <button class="signup-btn" id="signupBtn">회원가입</button>
+      </div>
 
-    <button class="refresh-btn" onclick="loadData()">데이터 새로고침</button>
-    <div id="status" class="status"></div>
-    <div id="dataList" class="list"></div>
+      <div class="notice">
+        처음 사용하는 이메일은 회원가입을 먼저 누르세요.<br />
+        이미 가입한 이메일은 로그인 버튼을 누르면 됩니다.
+      </div>
+    </section>
+
+    <section id="mainSection" class="hidden">
+      <div class="top-bar">
+        <div class="user-info">
+          로그인 계정: <strong id="userEmail"></strong>
+        </div>
+        <button class="logout-btn" id="logoutBtn">로그아웃</button>
+      </div>
+
+      <div class="form-box">
+        <input id="titleInput" type="text" placeholder="제목 입력" />
+        <input id="contentInput" type="text" placeholder="내용 입력" />
+        <button class="add-btn" id="addBtn">추가</button>
+      </div>
+
+      <button class="refresh-btn" id="refreshBtn">데이터 새로고침</button>
+      <div id="status" class="status"></div>
+      <div id="dataList" class="list"></div>
+    </section>
   </div>
 
-  <script>
-    // Firebase Realtime Database URL
-    const DATABASE_URL = 'https://test-ba2bb-default-rtdb.firebaseio.com/';
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+    import {
+      getDatabase,
+      ref,
+      push,
+      set,
+      update,
+      remove,
+      onValue,
+      off
+    } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js';
 
-    // 데이터를 저장할 위치입니다.
-    // Firebase 콘솔에서는 items 아래에 데이터가 저장됩니다.
-    const DATA_PATH = 'items';
+        // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyD-996iuSiIzam2EyRDMhRkhoUOrrlFgoE",
+      authDomain: "test-ba2bb.firebaseapp.com",
+      databaseURL: "https://test-ba2bb-default-rtdb.firebaseio.com",
+      projectId: "test-ba2bb",
+      storageBucket: "test-ba2bb.firebasestorage.app",
+      messagingSenderId: "968513475632",
+      appId: "1:968513475632:web:470910538c0311182709f5",
+      measurementId: "G-91Q90GJLBB"
+    };
 
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const database = getDatabase(app);
+
+    const authSection = document.getElementById('authSection');
+    const mainSection = document.getElementById('mainSection');
+
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    const userEmail = document.getElementById('userEmail');
     const titleInput = document.getElementById('titleInput');
     const contentInput = document.getElementById('contentInput');
+    const addBtn = document.getElementById('addBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
     const dataList = document.getElementById('dataList');
     const statusBox = document.getElementById('status');
+
+    let currentUser = null;
+    let currentItemsRef = null;
 
     function setStatus(message) {
       statusBox.textContent = message;
     }
 
-    function getEndpoint(path = '') {
-      const cleanPath = path ? `/${path}` : '';
-      return `${DATABASE_URL}/${DATA_PATH}${cleanPath}.json`;
+    function getEmailAndPassword() {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!email || !password) {
+        alert('이메일과 비밀번호를 모두 입력해주세요.');
+        return null;
+      }
+
+      if (password.length < 6) {
+        alert('비밀번호는 6자리 이상이어야 합니다.');
+        return null;
+      }
+
+      return { email, password };
     }
 
-    async function loadData() {
+    signupBtn.addEventListener('click', async () => {
+      const account = getEmailAndPassword();
+      if (!account) return;
+
       try {
-        setStatus('데이터를 불러오는 중입니다...');
-
-        const response = await fetch(getEndpoint());
-        const data = await response.json();
-
-        renderData(data);
-        setStatus('데이터를 불러왔습니다.');
+        await createUserWithEmailAndPassword(auth, account.email, account.password);
+        alert('회원가입이 완료되었습니다.');
       } catch (error) {
+        alert(getKoreanErrorMessage(error.code));
+      }
+    });
+
+    loginBtn.addEventListener('click', async () => {
+      const account = getEmailAndPassword();
+      if (!account) return;
+
+      try {
+        await signInWithEmailAndPassword(auth, account.email, account.password);
+      } catch (error) {
+        alert(getKoreanErrorMessage(error.code));
+      }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        alert('로그아웃에 실패했습니다.');
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        currentUser = user;
+        showMainPage(user);
+        startRealtimeDataListener(user.uid);
+      } else {
+        currentUser = null;
+        showAuthPage();
+        stopRealtimeDataListener();
+      }
+    });
+
+    function showMainPage(user) {
+      authSection.classList.add('hidden');
+      mainSection.classList.remove('hidden');
+      userEmail.textContent = user.email;
+      emailInput.value = '';
+      passwordInput.value = '';
+    }
+
+    function showAuthPage() {
+      authSection.classList.remove('hidden');
+      mainSection.classList.add('hidden');
+      userEmail.textContent = '';
+      dataList.innerHTML = '';
+    }
+
+    function startRealtimeDataListener(uid) {
+      stopRealtimeDataListener();
+      setStatus('데이터를 불러오는 중입니다...');
+
+      currentItemsRef = ref(database, `users/${uid}/items`);
+
+      onValue(currentItemsRef, (snapshot) => {
+        const data = snapshot.val();
+        renderData(data);
+        setStatus('데이터가 실시간으로 동기화되었습니다.');
+      }, (error) => {
         console.error(error);
-        setStatus('데이터 불러오기에 실패했습니다. Firebase 보안 규칙을 확인하세요.');
+        setStatus('데이터를 불러오지 못했습니다. Firebase 보안 규칙을 확인하세요.');
+      });
+    }
+
+    function stopRealtimeDataListener() {
+      if (currentItemsRef) {
+        off(currentItemsRef);
+        currentItemsRef = null;
       }
     }
 
+    addBtn.addEventListener('click', addData);
+    refreshBtn.addEventListener('click', () => {
+      if (currentUser) {
+        startRealtimeDataListener(currentUser.uid);
+      }
+    });
+
     async function addData() {
+      if (!currentUser) {
+        alert('로그인이 필요합니다.');
+        return;
+      }
+
       const title = titleInput.value.trim();
       const content = contentInput.value.trim();
 
@@ -245,51 +466,42 @@
         return;
       }
 
-      const newItem = {
-        title: title,
-        content: content,
-        createdAt: new Date().toLocaleString('ko-KR')
-      };
-
       try {
-        setStatus('데이터를 추가하는 중입니다...');
+        const itemsRef = ref(database, `users/${currentUser.uid}/items`);
+        const newItemRef = push(itemsRef);
 
-        await fetch(getEndpoint(), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(newItem)
+        await set(newItemRef, {
+          title,
+          content,
+          createdAt: new Date().toLocaleString('ko-KR'),
+          updatedAt: ''
         });
 
         titleInput.value = '';
         contentInput.value = '';
-        await loadData();
       } catch (error) {
         console.error(error);
-        setStatus('데이터 추가에 실패했습니다.');
+        alert('데이터 추가에 실패했습니다.');
       }
     }
 
-    async function deleteData(id) {
+    window.deleteData = async function(id) {
+      if (!currentUser) return;
+
       const isConfirmed = confirm('정말 삭제하시겠습니까?');
       if (!isConfirmed) return;
 
       try {
-        setStatus('데이터를 삭제하는 중입니다...');
-
-        await fetch(getEndpoint(id), {
-          method: 'DELETE'
-        });
-
-        await loadData();
+        await remove(ref(database, `users/${currentUser.uid}/items/${id}`));
       } catch (error) {
         console.error(error);
-        setStatus('데이터 삭제에 실패했습니다.');
+        alert('데이터 삭제에 실패했습니다.');
       }
-    }
+    };
 
-    async function updateData(id) {
+    window.updateData = async function(id) {
+      if (!currentUser) return;
+
       const editTitle = document.getElementById(`edit-title-${id}`).value.trim();
       const editContent = document.getElementById(`edit-content-${id}`).value.trim();
 
@@ -298,29 +510,17 @@
         return;
       }
 
-      const updatedItem = {
-        title: editTitle,
-        content: editContent,
-        updatedAt: new Date().toLocaleString('ko-KR')
-      };
-
       try {
-        setStatus('데이터를 수정하는 중입니다...');
-
-        await fetch(getEndpoint(id), {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(updatedItem)
+        await update(ref(database, `users/${currentUser.uid}/items/${id}`), {
+          title: editTitle,
+          content: editContent,
+          updatedAt: new Date().toLocaleString('ko-KR')
         });
-
-        await loadData();
       } catch (error) {
         console.error(error);
-        setStatus('데이터 수정에 실패했습니다.');
+        alert('데이터 수정에 실패했습니다.');
       }
-    }
+    };
 
     function renderData(data) {
       dataList.innerHTML = '';
@@ -356,7 +556,7 @@
       });
     }
 
-    function showEditForm(id, title, content) {
+    window.showEditForm = function(id, title, content) {
       const itemBox = document.getElementById(`item-${id}`);
 
       itemBox.innerHTML = `
@@ -364,10 +564,10 @@
           <input id="edit-title-${id}" type="text" value="${title}" />
           <input id="edit-content-${id}" type="text" value="${content}" />
           <button class="save-btn" onclick="updateData('${id}')">저장</button>
-          <button class="cancel-btn" onclick="loadData()">취소</button>
+          <button class="cancel-btn" onclick="startRealtimeDataListener(currentUser.uid)">취소</button>
         </div>
       `;
-    }
+    };
 
     function escapeHTML(text) {
       return String(text)
@@ -382,18 +582,40 @@
       return escapeHTML(text).replaceAll('`', '&#096;');
     }
 
-    // Enter 키로 데이터 추가
+    function getKoreanErrorMessage(code) {
+      switch (code) {
+        case 'auth/email-already-in-use':
+          return '이미 가입된 이메일입니다.';
+        case 'auth/invalid-email':
+          return '이메일 형식이 올바르지 않습니다.';
+        case 'auth/weak-password':
+          return '비밀번호가 너무 약합니다. 6자리 이상으로 입력해주세요.';
+        case 'auth/user-not-found':
+          return '가입되지 않은 이메일입니다.';
+        case 'auth/wrong-password':
+          return '비밀번호가 올바르지 않습니다.';
+        case 'auth/invalid-credential':
+          return '이메일 또는 비밀번호가 올바르지 않습니다.';
+        case 'auth/network-request-failed':
+          return '네트워크 연결을 확인해주세요.';
+        default:
+          return `오류가 발생했습니다: ${code}`;
+      }
+    }
+
     document.addEventListener('keydown', function(event) {
-      if (event.key === 'Enter' && document.activeElement.tagName === 'INPUT') {
-        const activeId = document.activeElement.id;
-        if (activeId === 'titleInput' || activeId === 'contentInput') {
-          addData();
-        }
+      if (event.key !== 'Enter') return;
+
+      const activeId = document.activeElement.id;
+
+      if (activeId === 'emailInput' || activeId === 'passwordInput') {
+        loginBtn.click();
+      }
+
+      if (activeId === 'titleInput' || activeId === 'contentInput') {
+        addBtn.click();
       }
     });
-
-    // 페이지가 열리면 자동으로 데이터 조회
-    loadData();
   </script>
 </body>
 </html>
