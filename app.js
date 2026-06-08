@@ -5,12 +5,12 @@ import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } from
 
 // 1. Firebase 환경 설정 (본인의 Firebase 프로젝트 설정 값으로 교체하세요)
 const firebaseConfig = {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
-    projectId: "YOUR_FIREBASE_PROJECT_ID",
-    storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
-    appId: "YOUR_FIREBASE_APP_ID"
+    apiKey: "AIzaSyC2x8DVRy47J3jKeLwz8sjNni0-dWsVJcQEY",
+    authDomain: "sport-95ece.firebaseapp.com",
+    projectId: "sport-95ece",
+    storageBucket: "sport-95ece.firebasestorage.app",
+    messagingSenderId: "737592792201",
+    appId: "1:737592792201:web:95ce1f7838b6421ad72258"
 };
 
 // 생성형 AI (Gemini) API 키 설정
