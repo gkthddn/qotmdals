@@ -3,47 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Sports Coaching Lab</title>
-    <link rel="stylesheet" href="style.css">
+    <title>FitCoach - AI 개인 맞춤형 운동 코치</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+    </style>
 </head>
-<body>
-    <header>
-        <h1>🏋️‍♂️ AI 스포츠 코칭 랩</h1>
-        <div id="auth-section">
-            <button id="btn-login">구글 로그인</button>
-            <button id="btn-logout" class="hidden">로그아웃</button>
+<body class="bg-gray-100 min-h-screen text-gray-800">
+
+    <nav class="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold flex items-center gap-2">
+            🏋️‍♂️ FitCoach <span class="text-sm font-normal bg-blue-700 px-2 py-1 rounded">체육 & AI</span>
+        </h1>
+        <div>
+            <button id="loginBtn" class="bg-white text-blue-600 px-4 py-2 rounded font-semibold hover:bg-gray-100 transition">구글 로그인</button>
+            <div id="userInfo" class="hidden flex items-center gap-3">
+                <span id="userName" class="font-medium"></span>
+                <button id="logoutBtn" class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition">로그아웃</button>
+            </div>
         </div>
-    </header>
+    </nav>
 
-    <main>
-        <section id="guest-view">
-            <p>나만의 AI 트레이너를 만나보세요. 서비스를 이용하려면 로그인이 필요합니다.</p>
-        </section>
-
-        <section id="user-view" class="hidden">
-            <div class="welcome-msg">
-                <span id="user-name"></span> 코치님, 환영합니다!
+    <main class="max-w-4xl mx-auto p-4 mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        <section class="bg-white p-6 rounded-lg shadow-md flex flex-col justify-between">
+            <div>
+                <h2 class="text-lg font-bold mb-4 text-blue-600">🤖 AI 스포츠 트레이너에게 물어보세요</h2>
+                <textarea id="aiPrompt" rows="4" class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="예: '축구 경기 전 스트레칭 루틴 알려줘', '벌크업을 위한 식단 짜줘'"></textarea>
+                <button id="askAiBtn" class="w-full mt-3 bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 transition">AI 코칭 받기</button>
             </div>
-
-            <div class="coach-container">
-                <h3>오늘의 운동 컨디션 / 목표 입력</h3>
-                <textarea id="user-input" placeholder="예: 오늘 하체 운동 날인데 무릎이 조금 뻐근해. 무리 안 가는 루틴과 동기부여 한마디 해줘!"></textarea>
-                <button id="btn-ask">AI 코치에게 진단받기</button>
-            </div>
-
-            <div id="result-container" class="hidden">
-                <h3>📋 AI 코치의 처방</h3>
-                <p id="ai-response"></p>
-                <button id="btn-speak">📢 음성으로 듣기 (TTS)</button>
-            </div>
-
-            <div class="history-container">
-                <h3>📅 나의 코칭 기록 히스토리</h3>
-                <ul id="history-list"></ul>
+            
+            <div class="mt-6 p-4 bg-gray-50 border rounded-md min-h-[150px] relative">
+                <h3 class="text-sm font-bold text-gray-500 mb-2">AI 답변:</h3>
+                <p id="aiResponse" class="text-gray-700 whitespace-pre-line">여기에 AI의 맞춤형 운동 가이드가 나타납니다.</p>
+                <button id="ttsBtn" class="absolute bottom-2 right-2 bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition shadow hidden" title="음성으로 듣기">
+                    🔊 읽어주기
+                </button>
             </div>
         </section>
+
+        <section class="bg-white p-6 rounded-lg shadow-md">
+            <h2 class="text-lg font-bold mb-4 text-blue-600">📝 오늘 나의 운동 기록지</h2>
+            <form id="workoutForm" class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600">운동 종목</label>
+                    <input type="text" id="workoutType" required class="w-full p-2 border rounded-md" placeholder="예: 스쿼트, 런닝, 축구">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600">운동 시간 / 세트수</label>
+                    <input type="text" id="workoutDetail" required class="w-full p-2 border rounded-md" placeholder="예: 30분, 5세트">
+                </div>
+                <button type="submit" class="w-full bg-gray-800 text-white py-2 rounded-md font-semibold hover:bg-gray-900 transition">일지 기록하기</button>
+            </form>
+
+            <hr class="my-6 border-gray-200">
+
+            <div>
+                <h3 class="text-md font-bold mb-3 text-gray-700">📋 저장된 운동 기록 목록</h3>
+                <ul id="workoutList" class="space-y-2 max-h-[200px] overflow-y-auto">
+                    <p class="text-gray-400 text-sm text-center py-4">로그인 후 운동 일지를 기록해보세요.</p>
+                </ul>
+            </div>
+        </section>
+
     </main>
 
-    <script type="module" src="app.js"></script>
+    <script type="module">
+        // Firebase 라이브러리 임포트
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // 제공해주신 Firebase 설정 정보
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2x8DVRy47J3jKeLwz8sjNni0-dWsVJcQ",
+            authDomain: "sport-95ece.firebaseapp.com",
+            databaseURL: "https://sport-95ece-default-rtdb.firebaseio.com",
+            projectId: "sport-95ece",
+            storageBucket: "sport-95ece.firebasestorage.app",
+            messagingSenderId: "737592792201",
+            appId: "1:737592792201:web:95ce1f7838b6421ad72258",
+            measurementId: "G-RH9BN2S5NP"
+        };
+
+        // 초기화
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+        const provider = new GoogleAuthProvider();
+
+        // OpenAI API Key
+        const OPENAI_API_KEY = "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";
+
+        // 상태 변수
+        let currentUser = null;
+
+        // DOM 요소 정의
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userInfo = document.getElementById('userInfo');
+        const userName = document.getElementById('userName');
+        const askAiBtn = document.getElementById('askAiBtn');
+        const aiPrompt = document.getElementById('aiPrompt');
+        const aiResponse = document.getElementById('aiResponse');
+        const ttsBtn = document.getElementById('ttsBtn');
+        const workoutForm = document.getElementById('workoutForm');
+        const workoutList = document.getElementById('workoutList');
+
+        // 1. Firebase Authentication (로그인/로그아웃 관리)
+        loginBtn.addEventListener('click', async () => {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error("로그인 실패:", error);
+                alert("로그인에 실패했습니다.");
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                loginBtn.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                userName.textContent = `${user.displayName} 코치님`;
+                loadWorkoutLogs(user.uid); // 로그인 시 유저 데이터 로드
+            } else {
+                currentUser = null;
+                loginBtn.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                workoutList.innerHTML = `<p class="text-gray-400 text-sm text-center py-4">로그인 후 운동 일지를 기록해보세요.</p>`;
+            }
+        });
+
+        // 2. OpenAI API 연동 (생성형 인공지능 운동 코칭)
+        askAiBtn.addEventListener('click', async () => {
+            const prompt = aiPrompt.value.trim();
+            if (!prompt) return alert("질문을 입력해주세요!");
+
+            aiResponse.textContent = "AI 트레이너가 답변을 생각하고 있습니다... 🏃‍♂️💨";
+            ttsBtn.classList.add('hidden');
+
+            try {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${OPENAI_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o-mini", // 비용 효율적이고 빠른 모델 사용
+                        messages: [
+                            { role: "system", content: "당신은 전문 스포츠 트레이너이자 체역학 전문가입니다. 사용자의 운동 질문에 대해 전문적이고 활기찬 톤으로 조언해주고, 격려의 말을 아끼지 마세요. 답변은 3줄 이내로 간결하게 요약해서 말해주세요." },
+                            { role: "user", content: prompt }
+                        ],
+                        max_tokens: 300
+                    })
+                });
+
+                const data = await response.json();
+                const reply = data.choices[0].message.content;
+                aiResponse.textContent = reply;
+                ttsBtn.classList.remove('hidden'); // 읽기 버튼 활성화
+            } catch (error) {
+                console.error("AI 연동 오류:", error);
+                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. API 키나 네트워크를 확인하세요.";
+            }
+        });
+
+        // 3. Web Speech API 활용 (TTS 기능)
+        ttsBtn.addEventListener('click', () => {
+            const textToSpeak = aiResponse.textContent;
+            if ('speechSynthesis' in window) {
+                // 이미 재생 중인 음성이 있다면 중지
+                window.speechSynthesis.cancel();
+
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
+                utterance.lang = 'ko-KR'; // 한국어 설정
+                utterance.rate = 1.0;     // 속도 기본값
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("죄송합니다. 현재 브라우저는 TTS 기능을 지원하지 않습니다.");
+            }
+        });
+
+        // 4. Firebase Realtime Database 연동 (데이터 저장 및 읽기)
+        workoutForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!currentUser) return alert("운동 일지를 기록하려면 먼저 로그인을 해주세요!");
+
+            const type = document.getElementById('workoutType').value;
+            const detail = document.getElementById('workoutDetail').value;
+
+            // 유저 고유 ID(uid) 하위에 기록 저장
+            const userLogRef = ref(db, `users/${currentUser.uid}/logs`);
+            push(userLogRef, {
+                type: type,
+                detail: detail,
+                date: new Date().toLocaleDateString()
+            }).then(() => {
+                workoutForm.reset(); // 입력창 초기화
+            }).catch((err) => alert("저장 실패: " + err.message));
+        });
+
+        // 실시간으로 Firebase에서 운동 기록 가져오기
+        function loadWorkoutLogs(uid) {
+            const userLogRef = ref(db, `users/${uid}/logs`);
+            onValue(userLogRef, (snapshot) => {
+                workoutList.innerHTML = "";
+                const data = snapshot.val();
+                
+                if (!data) {
+                    workoutList.innerHTML = `<p class="text-gray-400 text-sm text-center py-4">아직 기록된 운동이 없습니다. 첫 운동을 기록해보세요!</p>`;
+                    return;
+                }
+
+                // 최신 데이터가 위로 오도록 역순 출력
+                Object.values(data).reverse().forEach(log => {
+                    const li = document.createElement('li');
+                    li.className = "p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-md flex justify-between text-sm";
+                    li.innerHTML = `
+                        <div>
+                            <span class="font-bold text-blue-700">[${log.type}]</span> ${log.detail}
+                        </div>
+                        <span class="text-gray-400 text-xs">${log.date}</span>
+                    `;
+                    workoutList.appendChild(li);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
