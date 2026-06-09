@@ -60,8 +60,8 @@
 
             <div>
                 <h3 class="text-md font-bold mb-3 text-gray-700">📋 저장된 운동 기록 목록</h3>
-                <ul id="workoutList" class="space-y-2 max-h-[200px] overflow-y-auto">
-                    <p class="text-gray-400 text-sm text-center py-4">로그인 후 운동 일지를 기록해보세요.</p>
+                <ul id="workoutList" class="space-y-2 max-h-[250px] overflow-y-auto p-1">
+                    <p id="listPlaceholder" class="text-gray-400 text-sm text-center py-4">로그인 후 운동 일지를 기록해보세요.</p>
                 </ul>
             </div>
         </section>
@@ -91,7 +91,7 @@
         const db = getDatabase(app);
         const provider = new GoogleAuthProvider();
 
-        // 🔗 제공해주신 구글 앱스 스크립트 웹 앱 URL을 연동했습니다.
+        // 구글 앱스 스크립트 웹 앱 URL
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw5hKTdPjKKNZWctbqENp0Iz9T_6moqyktmK5QnKRwU6eENTiA0nIKPRZ2Z4321awrN/exec";
 
         let currentUser = null;
@@ -128,7 +128,7 @@
                 loginBtn.classList.add('hidden');
                 userInfo.classList.remove('hidden');
                 userName.textContent = `${user.displayName} 코치님`;
-                loadWorkoutLogs(user.uid);
+                loadWorkoutLogs(user.uid); // 로그인 성공 시 실시간으로 파이어베이스 데이터 연결
             } else {
                 currentUser = null;
                 loginBtn.classList.remove('hidden');
@@ -137,7 +137,7 @@
             }
         });
 
-        // 2. OpenAI API 연동 (구글 앱스 스크립트를 거쳐서 안전하게 호출)
+        // 2. OpenAI API 연동 (구글 앱스 스크립트 경유)
         askAiBtn.addEventListener('click', async () => {
             const prompt = aiPrompt.value.trim();
             if (!prompt) return alert("질문을 입력해주세요!");
@@ -146,7 +146,6 @@
             ttsBtn.classList.add('hidden');
 
             try {
-                // 구글 앱스 스크립트로 질문(question) 데이터 전송
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: "POST",
                     body: JSON.stringify({ question: prompt })
@@ -159,12 +158,11 @@
                     return;
                 }
 
-                // 구글 스크립트 내부에서 OpenAI 연동 후 응답한 answer를 출력
                 aiResponse.textContent = data.answer;
-                ttsBtn.classList.remove('hidden'); // TTS 읽어주기 버튼 활성화
+                ttsBtn.classList.remove('hidden'); // 읽기 버튼 등장
             } catch (error) {
                 console.error("GAS 연동 오류:", error);
-                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. 구글 앱스 스크립트 배포 시 액세스 권한이 '모든 사용자(Anyone)'로 되어 있는지 확인해 주세요.";
+                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. 구글 앱스 스크립트 설정을 확인하세요.";
             }
         });
 
@@ -172,7 +170,7 @@
         ttsBtn.addEventListener('click', () => {
             const textToSpeak = aiResponse.textContent;
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); // 기존 재생 중인 음성 중지
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 utterance.lang = 'ko-KR'; 
                 utterance.rate = 1.0;     
@@ -182,7 +180,7 @@
             }
         });
 
-        // 4. Firebase Realtime Database 연동 (운동 일지 저장)
+        // 4. Firebase Realtime Database 연동 (데이터 저장하기)
         workoutForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!currentUser) return alert("운동 일지를 기록하려면 먼저 로그인을 해주세요!");
@@ -190,19 +188,26 @@
             const type = document.getElementById('workoutType').value;
             const detail = document.getElementById('workoutDetail').value;
 
+            // 파이어베이스 데이터베이스의 users/유저고유ID/logs 에 데이터 저장
             const userLogRef = ref(db, `users/${currentUser.uid}/logs`);
             push(userLogRef, {
                 type: type,
                 detail: detail,
                 date: new Date().toLocaleDateString()
             }).then(() => {
-                workoutForm.reset(); 
-            }).catch((err) => alert("저장 실패: " + err.message));
+                workoutForm.reset(); // 입력창 초기화
+                alert("기록이 완료되었습니다!");
+            }).catch((err) => {
+                console.error("저장 오류:", err);
+                alert("파이어베이스 저장 실패: " + err.message);
+            });
         });
 
-        // 운동 일지 실시간 불러오기
+        // Firebase Realtime Database 실시간 데이터 불러오기 함수
         function loadWorkoutLogs(uid) {
             const userLogRef = ref(db, `users/${uid}/logs`);
+            
+            // 데이터가 바뀔 때마다 자동으로 실행되어 화면을 갱신해줍니다.
             onValue(userLogRef, (snapshot) => {
                 workoutList.innerHTML = "";
                 const data = snapshot.val();
@@ -212,17 +217,20 @@
                     return;
                 }
 
+                // 객체 데이터를 리스트 배열로 바꿔 역순(최신순)으로 정렬하여 출력
                 Object.values(data).reverse().forEach(log => {
                     const li = document.createElement('li');
-                    li.className = "p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-md flex justify-between text-sm";
+                    li.className = "p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-md flex justify-between items-center text-sm mb-2 shadow-xs";
                     li.innerHTML = `
                         <div>
-                            <span class="font-bold text-blue-700">[${log.type}]</span> ${log.detail}
+                            <span class="font-bold text-blue-700">[${log.type}]</span> <span class="text-gray-700">${log.detail}</span>
                         </div>
                         <span class="text-gray-400 text-xs">${log.date}</span>
                     `;
                     workoutList.appendChild(li);
                 });
+            }, (error) => {
+                console.error("데이터 불러오기 실패:", error);
             });
         }
     </script>
