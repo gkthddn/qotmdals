@@ -69,12 +69,11 @@
     </main>
 
     <script type="module">
-        // Firebase 라이브러리 임포트
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // 제공해주신 Firebase 설정 정보
+        // Firebase 설정 정보
         const firebaseConfig = {
             apiKey: "AIzaSyC2x8DVRy47J3jKeLwz8sjNni0-dWsVJcQ",
             authDomain: "sport-95ece.firebaseapp.com",
@@ -92,10 +91,9 @@
         const db = getDatabase(app);
         const provider = new GoogleAuthProvider();
 
-        // OpenAI API Key
-        const OPENAI_API_KEY = "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";
+        // 💡 새로 보내주신 OpenAI API Key를 적용했습니다.
+        const OPENAI_API_KEY = "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";
 
-        // 상태 변수
         let currentUser = null;
 
         // DOM 요소 정의
@@ -110,7 +108,7 @@
         const workoutForm = document.getElementById('workoutForm');
         const workoutList = document.getElementById('workoutList');
 
-        // 1. Firebase Authentication (로그인/로그아웃 관리)
+        // 1. Firebase Authentication
         loginBtn.addEventListener('click', async () => {
             try {
                 await signInWithPopup(auth, provider);
@@ -130,7 +128,7 @@
                 loginBtn.classList.add('hidden');
                 userInfo.classList.remove('hidden');
                 userName.textContent = `${user.displayName} 코치님`;
-                loadWorkoutLogs(user.uid); // 로그인 시 유저 데이터 로드
+                loadWorkoutLogs(user.uid);
             } else {
                 currentUser = null;
                 loginBtn.classList.remove('hidden');
@@ -139,7 +137,7 @@
             }
         });
 
-        // 2. OpenAI API 연동 (생성형 인공지능 운동 코칭)
+        // 2. OpenAI API 연동 (GPT-4o-mini 모델 사용)
         askAiBtn.addEventListener('click', async () => {
             const prompt = aiPrompt.value.trim();
             if (!prompt) return alert("질문을 입력해주세요!");
@@ -155,7 +153,7 @@
                         "Authorization": `Bearer ${OPENAI_API_KEY}`
                     },
                     body: JSON.stringify({
-                        model: "gpt-4o-mini", // 비용 효율적이고 빠른 모델 사용
+                        model: "gpt-4o-mini", 
                         messages: [
                             { role: "system", content: "당신은 전문 스포츠 트레이너이자 체역학 전문가입니다. 사용자의 운동 질문에 대해 전문적이고 활기찬 톤으로 조언해주고, 격려의 말을 아끼지 마세요. 답변은 3줄 이내로 간결하게 요약해서 말해주세요." },
                             { role: "user", content: prompt }
@@ -165,32 +163,38 @@
                 });
 
                 const data = await response.json();
+                
+                // API 키 차단 및 오류 발생 시 체크용 로그
+                if(data.error) {
+                    console.error("OpenAI Error:", data.error);
+                    aiResponse.textContent = `오류가 발생했습니다: ${data.error.message}`;
+                    return;
+                }
+
                 const reply = data.choices[0].message.content;
                 aiResponse.textContent = reply;
                 ttsBtn.classList.remove('hidden'); // 읽기 버튼 활성화
             } catch (error) {
                 console.error("AI 연동 오류:", error);
-                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. API 키나 네트워크를 확인하세요.";
+                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. GitHub에 소스코드가 퍼블릭으로 올라가면 API 키가 즉시 만료될 수 있습니다.";
             }
         });
 
-        // 3. Web Speech API 활용 (TTS 기능)
+        // 3. TTS 기능 (Web Speech API)
         ttsBtn.addEventListener('click', () => {
             const textToSpeak = aiResponse.textContent;
             if ('speechSynthesis' in window) {
-                // 이미 재생 중인 음성이 있다면 중지
                 window.speechSynthesis.cancel();
-
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                utterance.lang = 'ko-KR'; // 한국어 설정
-                utterance.rate = 1.0;     // 속도 기본값
+                utterance.lang = 'ko-KR'; 
+                utterance.rate = 1.0;     
                 window.speechSynthesis.speak(utterance);
             } else {
                 alert("죄송합니다. 현재 브라우저는 TTS 기능을 지원하지 않습니다.");
             }
         });
 
-        // 4. Firebase Realtime Database 연동 (데이터 저장 및 읽기)
+        // 4. Firebase Realtime Database 연동
         workoutForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!currentUser) return alert("운동 일지를 기록하려면 먼저 로그인을 해주세요!");
@@ -198,18 +202,16 @@
             const type = document.getElementById('workoutType').value;
             const detail = document.getElementById('workoutDetail').value;
 
-            // 유저 고유 ID(uid) 하위에 기록 저장
             const userLogRef = ref(db, `users/${currentUser.uid}/logs`);
             push(userLogRef, {
                 type: type,
                 detail: detail,
                 date: new Date().toLocaleDateString()
             }).then(() => {
-                workoutForm.reset(); // 입력창 초기화
+                workoutForm.reset(); 
             }).catch((err) => alert("저장 실패: " + err.message));
         });
 
-        // 실시간으로 Firebase에서 운동 기록 가져오기
         function loadWorkoutLogs(uid) {
             const userLogRef = ref(db, `users/${uid}/logs`);
             onValue(userLogRef, (snapshot) => {
@@ -221,7 +223,6 @@
                     return;
                 }
 
-                // 최신 데이터가 위로 오도록 역순 출력
                 Object.values(data).reverse().forEach(log => {
                     const li = document.createElement('li');
                     li.className = "p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-md flex justify-between text-sm";
