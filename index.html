@@ -30,7 +30,7 @@
             <div>
                 <h2 class="text-lg font-bold mb-4 text-blue-600">🤖 AI 스포츠 트레이너에게 물어보세요</h2>
                 <textarea id="aiPrompt" rows="4" class="w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="예: '축구 경기 전 스트레칭 루틴 알려줘', '벌크업을 위한 식단 짜줘'"></textarea>
-                <button id="askAiBtn" class="w-full mt-3 bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 transition">AI 코칭 받기</button>
+                <button id="askAiBtn" class="w-full mt-3 bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-gray-700 transition">AI 코칭 받기</button>
             </div>
             
             <div class="mt-6 p-4 bg-gray-50 border rounded-md min-h-[150px] relative">
@@ -91,7 +91,7 @@
         const db = getDatabase(app);
         const provider = new GoogleAuthProvider();
 
-        // 새로운 구글 앱스 스크립트 웹 앱 URL 적용 완료
+        // 설정하신 구글 앱스 스크립트 웹 앱 URL
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz3RA5Ql9jxhdAXbwE6WUm5N_z2HdUUy96pZhml5ORzPipoIGlEVPrhgmkh28Vvydo3/exec";
 
         let currentUser = null;
@@ -128,7 +128,7 @@
                 loginBtn.classList.add('hidden');
                 userInfo.classList.remove('hidden');
                 userName.textContent = `${user.displayName} 코치님`;
-                loadWorkoutLogs(user.uid); // 로그인 성공 시 실시간으로 파이어베이스 데이터 연결
+                loadWorkoutLogs(user.uid);
             } else {
                 currentUser = null;
                 loginBtn.classList.remove('hidden');
@@ -137,7 +137,7 @@
             }
         });
 
-        // 2. OpenAI API 연동 (구글 앱스 스크립트 경유)
+        // 2. Claude API 연동 (구글 앱스 스크립트 경유)
         askAiBtn.addEventListener('click', async () => {
             const prompt = aiPrompt.value.trim();
             if (!prompt) return alert("질문을 입력해주세요!");
@@ -148,25 +148,29 @@
             try {
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: "POST",
-                    body: JSON.stringify({ question: prompt })
+                    headers: {
+                        "Content-Type": "text/plain" // CORS 이슈 방지를 위해 text/plain 권장
+                    },
+                    body: JSON.stringify({ question: prompt }),
+                    redirect: "follow" // 구글 스크립트 리다이렉트 허용 필수
                 });
 
                 const data = await response.json();
                 
                 if (data.error) {
-                    aiResponse.textContent = `오류 발생: ${data.error}\n구글 스크립트 설정을 확인해보세요.`;
+                    aiResponse.textContent = `${data.error}\n\n[조치 방법] Anthropic API 키가 만료되었거나 올바른지, 혹은 크레딧 잔액이 있는지 확인해보세요.`;
                     return;
                 }
 
                 aiResponse.textContent = data.answer;
-                ttsBtn.classList.remove('hidden'); // 읽기 버튼 등장
+                ttsBtn.classList.remove('hidden');
             } catch (error) {
                 console.error("GAS 연동 오류:", error);
-                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. 구글 앱스 스크립트 설정을 확인하세요.";
+                aiResponse.textContent = "AI 답변을 가져오는 데 실패했습니다. 구글 스크립트 배포 상태 및 인터넷 연결을 확인하세요.";
             }
         });
 
-        // 3. TTS 기능 (Web Speech API)
+        // 3. TTS 기능
         ttsBtn.addEventListener('click', () => {
             const textToSpeak = aiResponse.textContent;
             if ('speechSynthesis' in window) {
@@ -180,7 +184,7 @@
             }
         });
 
-        // 4. Firebase Realtime Database 연동 (데이터 저장하기)
+        // 4. Firebase 데이터 저장
         workoutForm.addEventListener('submit', (e) => {
             e.preventDefault();
             if (!currentUser) return alert("운동 일지를 기록하려면 먼저 로그인을 해주세요!");
@@ -188,14 +192,13 @@
             const type = document.getElementById('workoutType').value;
             const detail = document.getElementById('workoutDetail').value;
 
-            // 파이어베이스 데이터베이스의 users/유저고유ID/logs 에 데이터 저장
             const userLogRef = ref(db, `users/${currentUser.uid}/logs`);
             push(userLogRef, {
                 type: type,
                 detail: detail,
                 date: new Date().toLocaleDateString()
             }).then(() => {
-                workoutForm.reset(); // 입력창 초기화
+                workoutForm.reset();
                 alert("기록이 완료되었습니다!");
             }).catch((err) => {
                 console.error("저장 오류:", err);
@@ -203,11 +206,10 @@
             });
         });
 
-        // Firebase Realtime Database 실시간 데이터 불러오기 함수
+        // Firebase 실시간 데이터 불러오기
         function loadWorkoutLogs(uid) {
             const userLogRef = ref(db, `users/${uid}/logs`);
             
-            // 데이터가 바뀔 때마다 자동으로 실행되어 화면을 갱신해줍니다.
             onValue(userLogRef, (snapshot) => {
                 workoutList.innerHTML = "";
                 const data = snapshot.val();
@@ -217,7 +219,6 @@
                     return;
                 }
 
-                // 객체 데이터를 리스트 배열로 바꿔 역순(최신순)으로 정렬하여 출력
                 Object.values(data).reverse().forEach(log => {
                     const li = document.createElement('li');
                     li.className = "p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-md flex justify-between items-center text-sm mb-2 shadow-xs";
