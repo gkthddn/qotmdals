@@ -91,8 +91,8 @@
         const db = getDatabase(app);
         const provider = new GoogleAuthProvider();
 
-        // 🔴 제공해주신 새로운 구글 앱스 스크립트 웹 앱 URL로 업데이트 완료!
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzhiCd3JLUBC7hUri6iMEfTmqv8iBsFMsIeCg6KS7Pfh_4Jz5IvoIhMSdXDwgj61kiN-g/exec";
+        // 🔴 새로 배포하신 구글 앱스 스크립트 주소로 교체 완료!
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwse63WyEfxHp6Ur847osZMsZEiXlIJsKyWpv-m3wxDUi8Ls8Y6Xyatni1dPUNkb5khRg/exec";
 
         let currentUser = null;
 
@@ -137,7 +137,7 @@
             }
         });
 
-        // 2. Claude API 연동 (구글 앱스 스크립트 경유)
+        // 2. OpenAI API 연동 (구글 앱스 스크립트 경유)
         askAiBtn.addEventListener('click', async () => {
             const prompt = aiPrompt.value.trim();
             if (!prompt) return alert("질문을 입력해주세요!");
@@ -149,16 +149,16 @@
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "text/plain" // CORS 이슈 방지를 위해 text/plain 유지
+                        "Content-Type": "text/plain"
                     },
                     body: JSON.stringify({ question: prompt }),
-                    redirect: "follow" // 구글 스크립트 리다이렉트 허용 필수
+                    redirect: "follow"
                 });
 
                 const data = await response.json();
                 
                 if (data.error) {
-                    aiResponse.textContent = `${data.error}\n\n[조치 방법] 구글 앱스 스크립트(GAS) 내부의 코드가 구형 모델(claude-3-haiku-20240307)을 사용 중인지 확인하고, 'claude-3-5-haiku-latest'로 수정 후 [새 배포]를 해주세요.`;
+                    aiResponse.textContent = `${data.error}\n\n[조치 방법] 구글 앱스 스크립트에 OpenAI API 키가 정상적으로 등록되었는지 스크립트 속성을 확인해보세요.`;
                     return;
                 }
 
