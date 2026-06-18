@@ -1,145 +1,173 @@
-// Firebase SDK 모듈 가져오기
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+// Firebase v9 모듈 가져오기 (CDN 방식)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-// 1. Firebase 환경 설정 (본인의 Firebase 프로젝트 설정 값으로 교체하세요)
+// 💡 학생분의 Firebase 프로젝트 설정이 적용되었습니다!
 const firebaseConfig = {
-    apiKey: "AIzaSyC2x8DVRy47J3jKeLwz8sjNni0-dWsVJcQEY",
-    authDomain: "sport-95ece.firebaseapp.com",
-    projectId: "sport-95ece",
-    storageBucket: "sport-95ece.firebasestorage.app",
-    messagingSenderId: "737592792201",
-    appId: "1:737592792201:web:95ce1f7838b6421ad72258"
+  apiKey: "AIzaSyBw899OfLP_yv167gAXRs03pY718S9at-o",
+  authDomain: "qotmdals.firebaseapp.com",
+  databaseURL: "https://qotmdals-default-rtdb.firebaseio.com",
+  projectId: "qotmdals",
+  storageBucket: "qotmdals.firebasestorage.app",
+  messagingSenderId: "808542366841",
+  appId: "1:808542366841:web:a8e8696798358e6728b8a8",
+  measurementId: "G-BHM51QW9YM"
 };
-
-// 생성형 AI (Gemini) API 키 설정
-const GEMINI_API_KEY = "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"; 
 
 // Firebase 초기화
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+const db = getDatabase(app);
 
-// DOM 요소 선택
-const btnLogin = document.getElementById("btn-login");
-const btnLogout = document.getElementById("btn-logout");
-const guestView = document.getElementById("guest-view");
-const userView = document.getElementById("user-view");
-const userName = document.getElementById("user-name");
-const userInput = document.getElementById("user-input");
-const btnAsk = document.getElementById("btn-ask");
-const resultContainer = document.getElementById("result-container");
-const aiResponse = document.getElementById("ai-response");
-const btnSpeak = document.getElementById("btn-speak");
-const historyList = document.getElementById("history-list");
+// 제공해주신 Google Apps Script 배포 URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyaOgzeur9oHxEH-z_YO7P8olVGRC-93drN2tSQWVojP0xxQ7PcgMJ768z68lJLHFSNNg/exec";
+
+// DOM 요소 가져오기
+const authSection = document.getElementById('auth-section');
+const mainSection = document.getElementById('main-section');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+const authMsg = document.getElementById('auth-msg');
 
 let currentUser = null;
-let currentAiText = ""; // TTS용 텍스트 저장 변수
+let lastAiResponse = ""; // TTS에 사용할 마지막 답변 저장용
 
-// 2. Firebase Authentication (로그인 상태 감지)
+// ----------------------------------------------------
+// 1. Firebase Authentication (로그인/회원가입)
+// ----------------------------------------------------
+document.getElementById('signup-btn').addEventListener('click', () => {
+    createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+        .then(() => alert("회원가입 성공!"))
+        .catch(error => authMsg.innerText = "오류: " + error.message);
+});
+
+document.getElementById('login-btn').addEventListener('click', () => {
+    signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value)
+        .catch(error => authMsg.innerText = "오류: " + error.message);
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+// 로그인 상태 감지 (로그인 성공 시 화면 전환 및 데이터 로드)
 onAuthStateChanged(auth, (user) => {
     if (user) {
         currentUser = user;
-        userName.innerText = user.displayName;
-        guestView.classList.add("hidden");
-        btnLogin.classList.add("hidden");
-        userView.classList.remove("hidden");
-        btnLogout.classList.remove("hidden");
-        loadHistory(user.uid); // 로그인 시 이전 기록 불러오기
+        authSection.style.display = 'none';
+        mainSection.style.display = 'block';
+        document.getElementById('user-email').innerText = user.email;
+        loadWorkoutLogs(); // 로그인 성공 시 기록 불러오기
     } else {
         currentUser = null;
-        guestView.classList.remove("hidden");
-        btnLogin.classList.remove("hidden");
-        userView.classList.add("hidden");
-        btnLogout.classList.add("hidden");
+        authSection.style.display = 'block';
+        mainSection.style.display = 'none';
     }
 });
 
-// 로그인 / 로그아웃 이벤트
-btnLogin.addEventListener("click", () => signInWithPopup(auth, provider));
-btnLogout.addEventListener("click", () => signOut(auth));
+// ----------------------------------------------------
+// 2. Firebase Database 연동 (운동 기록장)
+// ----------------------------------------------------
+document.getElementById('save-log-btn').addEventListener('click', () => {
+    const date = document.getElementById('log-date').value;
+    const text = document.getElementById('log-text').value;
 
-// 3. API 생성형 인공지능 연동 (Gemini API 사용 예시)
-async function askAiCoach(prompt) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
-    
-    // 체육 전문가 정체성을 부여하기 위한 프롬프트 엔지니어링
-    const systemPrompt = `너는 전문 스포츠 트레이너이자 정신력 코치야. 다음 사용자의 체육/운동 관련 질문에 대해 전문적이고 활기찬 톤으로 조언과 루틴을 제안해줘:\n\n${prompt}`;
+    if (!date || !text) return alert("날짜와 운동 내용을 모두 입력하세요!");
 
-    try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: systemPrompt }] }]
-            })
+    // 유저 고유 ID(uid)별로 폴더를 만들어 운동 일지를 분리 저장합니다.
+    const userLogRef = ref(db, 'workouts/' + currentUser.uid);
+    push(userLogRef, { date: date, text: text })
+        .then(() => {
+            document.getElementById('log-text').value = "";
+            alert("기록 완료!");
         });
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-        console.error("AI 호출 에러:", error);
-        return "AI 코치와 연결이 원활하지 않습니다. 다시 시도해주세요.";
-    }
-}
-
-// 진단받기 버튼 클릭 이벤트
-btnAsk.addEventListener("click", async () => {
-    const text = userInput.value.trim();
-    if (!text) return alert("내용을 입력해주세요!");
-
-    btnAsk.innerText = "코칭 분석 중...";
-    btnAsk.disabled = true;
-
-    // AI 응답 받기
-    const reply = await askAiCoach(text);
-    currentAiText = reply;
-    aiResponse.innerText = reply;
-    resultContainer.classList.remove("hidden");
-
-    btnAsk.innerText = "AI 코치에게 진단받기";
-    btnAsk.disabled = false;
-
-    // 4. Firebase Firestore 데이터 연동 (결과 저장)
-    try {
-        await addDoc(collection(db, "coaching_logs"), {
-            uid: currentUser.uid,
-            question: text,
-            answer: reply,
-            timestamp: new Date()
-        });
-        loadHistory(currentUser.uid); // 목록 새로고침
-    } catch (e) {
-        console.error("데이터 저장 실패:", e);
-    }
 });
 
-// 5. Firebase 데이터 연동 (과거 기록 불러오기)
-async function loadHistory(uid) {
-    historyList.innerHTML = "";
-    const q = query(collection(db, "coaching_logs"), where("uid", "==", uid), orderBy("timestamp", "desc"));
-    
-    const querySnapshot = await getDocs(q);
-    querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const li = document.createElement("li");
-        li.innerHTML = `<strong>질문:</strong> ${data.question} <br> <strong>코치 처방:</strong> ${data.answer.substring(0, 50)}...`;
-        historyList.appendChild(li);
+function loadWorkoutLogs() {
+    const userLogRef = ref(db, 'workouts/' + currentUser.uid);
+    onValue(userLogRef, (snapshot) => {
+        const logList = document.getElementById('log-list');
+        logList.innerHTML = "";
+        snapshot.forEach((childSnapshot) => {
+            const data = childSnapshot.val();
+            const li = document.createElement('li');
+            li.innerHTML = `<strong>${data.date}</strong> <span>${data.text}</span>`;
+            logList.appendChild(li);
+        });
     });
 }
 
-// 6. TTS (Web Speech API 활용 음성 출력 기능)
-btnSpeak.addEventListener("click", () => {
-    if (!currentAiText) return;
+// ----------------------------------------------------
+// 3. AI 연동 및 TTS 기능 (Google Apps Script API)
+// ----------------------------------------------------
+const chatBox = document.getElementById('chat-box');
+const aiInput = document.getElementById('ai-input');
+const askBtn = document.getElementById('ask-btn');
+const ttsBtn = document.getElementById('tts-btn');
+
+askBtn.addEventListener('click', async () => {
+    const question = aiInput.value;
+    if (!question) return;
+
+    // 사용자 메시지 화면에 표시
+    chatBox.innerHTML += `<p class="user-msg">${question}</p>`;
+    aiInput.value = "";
+    chatBox.innerHTML += `<p class="ai-msg" id="loading-msg">AI 트레이너가 생각 중입니다...</p>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    try {
+        // 학생이 작성한 GAS로 POST 요청 보내기 (Chat)
+        const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: "chat", question: question })
+        });
+        
+        const data = await response.json();
+        document.getElementById('loading-msg').remove();
+        
+        if (data.answer) {
+            lastAiResponse = data.answer; // TTS에 전달하기 위해 변수에 저장
+            chatBox.innerHTML += `<p class="ai-msg">🤖: ${data.answer}</p>`;
+        } else {
+            chatBox.innerHTML += `<p class="ai-msg">오류: ${data.error}</p>`;
+        }
+    } catch (error) {
+        document.getElementById('loading-msg').remove();
+        chatBox.innerHTML += `<p class="ai-msg">통신 오류가 발생했습니다.</p>`;
+    }
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// TTS 버튼 클릭 시 음성 재생
+ttsBtn.addEventListener('click', async () => {
+    if (!lastAiResponse) return alert("읽어줄 AI의 답변이 없습니다.");
     
-    // 브라우저 내장 TTS 기능 사용 (따로 API 키 필요 없음)
-    const speech = new SpeechSynthesisUtterance(currentAiText);
-    speech.lang = "ko-KR"; // 한국어 설정
-    speech.pitch = 1;      // 음높이
-    speech.rate = 1.1;     // 속도 (약간 빠르게 살짝 활기찬 느낌)
-    
-    // 기존에 나오고 있는 음성이 있다면 취소하고 새로 시작
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(speech);
+    const originalText = ttsBtn.innerText;
+    ttsBtn.innerText = "음성 생성 중...⏳";
+    ttsBtn.disabled = true;
+
+    try {
+        // 학생이 작성한 GAS로 POST 요청 보내기 (TTS)
+        const response = await fetch(GAS_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ type: "tts", text: lastAiResponse })
+        });
+        
+        const data = await response.json();
+        
+        if (data.audioBase64) {
+            // 인코딩된 Base64 데이터를 오디오로 변환하여 재생
+            const audioUrl = "data:audio/mp3;base64," + data.audioBase64;
+            const audio = new Audio(audioUrl);
+            audio.play();
+        } else {
+            alert("TTS 변환 오류: " + data.error);
+        }
+    } catch (error) {
+        alert("통신 오류가 발생했습니다.");
+    } finally {
+        ttsBtn.innerText = originalText;
+        ttsBtn.disabled = false;
+    }
 });
